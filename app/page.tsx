@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Wallet, TrendingUp, Percent } from "lucide-react";
 import { useData } from "@/context/DataContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { calculatePortfolio } from "@/lib/api";
+import { calculatePortfolioLocal } from "@/lib/api";
 import { CalculationResponse } from "@/lib/types";
 import { t, formatCurrency, formatPercent } from "@/lib/i18n";
 import MetricCard from "@/components/MetricCard";
@@ -12,24 +12,20 @@ import DataTable, { DataTableColumn } from "@/components/DataTable";
 import DailyProfitBarChart from "@/components/charts/DailyProfitBarChart";
 import EquityLineChart from "@/components/charts/EquityLineChart";
 import ProfitTimePeriods from "@/components/ProfitTimePeriods";
+import CashInterestCard from "@/components/CashInterestCard";
 
 export default function DashboardPage() {
   const { accounts, records, loaded, currencyUnit } = useData();
   const { language } = useLanguage();
-  const [result, setResult] = useState<CalculationResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const nameMap = useMemo(
     () => Object.fromEntries(accounts.map((a) => [a.id, a.name])),
     [accounts]
   );
 
-  useEffect(() => {
-    if (!loaded) return;
-    setLoading(true);
-    setError(null);
-    calculatePortfolio(
+  const result = useMemo(() => {
+    if (!loaded) return null;
+    return calculatePortfolioLocal(
       records.map(({ date, account_id, portfolio_value, cash_balance, net_cash_flow }) => ({
         date,
         account_id,
@@ -37,10 +33,7 @@ export default function DashboardPage() {
         cash_balance,
         net_cash_flow,
       }))
-    )
-      .then(setResult)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+    );
   }, [loaded, records]);
 
   const totals = useMemo(() => {
@@ -111,13 +104,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {error && (
-        <div className="glass-card p-4 border-rose-500/40 text-rose-600 dark:text-rose-400 text-sm">
-          {error}
-        </div>
-      )}
-
-      {!loading && loaded && records.length === 0 && (
+      {loaded && records.length === 0 && (
         <div className="glass-card p-8 text-center text-sm text-slate-500 dark:text-gray-400">
           {t("dashboard.noData", language)}
         </div>
@@ -144,6 +131,9 @@ export default function DashboardPage() {
           icon={<Percent className="w-5 h-5" />}
         />
       </div>
+
+      {/* Cash Interest & Yield Forecast Card */}
+      <CashInterestCard />
 
       {/* Time-based Profit Analysis (Daily, Weekly, Monthly, 3M, 6M, Yearly) */}
       {result && result.records.length > 0 && (

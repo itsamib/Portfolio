@@ -10,11 +10,11 @@ export interface CashInterestItem {
   id: string;
   account_id: string;
   title: string;
-  principal_amount: number; // Principal cash amount
   interest_rate: number; // Interest rate percentage e.g. 20%
   interest_period: 'yearly' | 'monthly'; // 'yearly' or 'monthly'
-  maturity_date: string; // ISO date string YYYY-MM-DD
-  is_settled?: boolean; // whether processed/settled
+  maturity_day: number; // Day of month for recurring maturity (1 to 31)
+  last_settlement_date: string; // ISO date string YYYY-MM-DD when cycle started or last settled
+  is_settled?: boolean; // whether currently waiting settlement
   created_at: string;
 }
 

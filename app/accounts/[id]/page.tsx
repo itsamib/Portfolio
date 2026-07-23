@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Wallet, TrendingUp, Percent, ArrowLeftRight } from "lucide-react";
 import { useData } from "@/context/DataContext";
 import { useLanguage } from "@/context/LanguageContext";
 import BackButton from "@/components/BackButton";
-import { calculatePortfolio } from "@/lib/api";
+import { calculatePortfolioLocal } from "@/lib/api";
 import { CalculationResponse } from "@/lib/types";
 import { t, formatCurrency, formatPercent } from "@/lib/i18n";
 import MetricCard from "@/components/MetricCard";
@@ -15,6 +15,7 @@ import EquityLineChart from "@/components/charts/EquityLineChart";
 import DailyProfitBarChart from "@/components/charts/DailyProfitBarChart";
 import CumulativeProfitAreaChart from "@/components/charts/CumulativeProfitAreaChart";
 import ProfitTimePeriods from "@/components/ProfitTimePeriods";
+import CashInterestCard from "@/components/CashInterestCard";
 
 export default function AccountDashboardPage() {
   const params = useParams<{ id: string }>();
@@ -30,15 +31,9 @@ export default function AccountDashboardPage() {
     [records, accountId]
   );
 
-  const [result, setResult] = useState<CalculationResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!loaded) return;
-    setLoading(true);
-    setError(null);
-    calculatePortfolio(
+  const result = useMemo(() => {
+    if (!loaded) return null;
+    return calculatePortfolioLocal(
       accountRecords.map(({ date, account_id, portfolio_value, cash_balance, net_cash_flow }) => ({
         date,
         account_id,
@@ -46,10 +41,7 @@ export default function AccountDashboardPage() {
         cash_balance,
         net_cash_flow,
       }))
-    )
-      .then(setResult)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+    );
   }, [loaded, accountRecords]);
 
   const summary = result?.summary.find((s) => s.account_id === accountId) ?? null;
@@ -79,11 +71,7 @@ export default function AccountDashboardPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="glass-card p-4 border-rose-500/40 text-rose-600 dark:text-rose-400 text-sm">{error}</div>
-      )}
-
-      {!loading && accountRecords.length === 0 && (
+      {accountRecords.length === 0 && (
         <div className="glass-card p-8 text-center text-sm text-slate-500 dark:text-gray-400">
           {t("account.noRecords", language)}
         </div>
@@ -115,6 +103,9 @@ export default function AccountDashboardPage() {
           icon={<Percent className="w-4 h-4" />}
         />
       </div>
+
+      {/* Cash Deposit Interest Yield Card for this Account */}
+      <CashInterestCard accountId={accountId} />
 
       {/* Period-based profit breakdown for this account */}
       {result && result.records.length > 0 && (

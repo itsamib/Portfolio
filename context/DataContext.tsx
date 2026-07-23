@@ -11,6 +11,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { Account, PortfolioRecord, CurrencyUnit, CashInterestItem } from "@/lib/types";
 import { toPersianDate } from "@/lib/persianDate";
+import { calculateCashYieldMetrics } from "@/lib/interestUtils";
 
 const ACCOUNTS_KEY = "ppt_accounts";
 const RECORDS_KEY = "ppt_records";
@@ -182,46 +183,50 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const target = cashInterests.find((i) => i.id === id);
     if (!target) return;
 
-    if (depositToPortfolio) {
-      // Calculate profit amount based on rate and period
-      const rateFraction = target.interest_rate / 100;
-      const profit =
-        target.interest_period === "monthly"
-          ? target.principal_amount * rateFraction
-          : target.principal_amount * rateFraction;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const accountRecords = records.filter((r) => r.account_id === target.account_id);
+    const metrics = calculateCashYieldMetrics(target, accountRecords, todayIso);
 
-      const todayIso = new Date().toISOString().slice(0, 10);
-
+    if (depositToPortfolio && metrics.accruedProfit > 0) {
       // Find latest record for this account to build on top
-      const accountRecords = records.filter((r) => r.account_id === target.account_id);
-      const latest = accountRecords.sort((a, b) => b.date.localeCompare(a.date))[0];
+      const latest = [...accountRecords].sort((a, b) => b.date.localeCompare(a.date))[0];
 
       const prevPortfolioVal = latest ? latest.portfolio_value : 0;
-      const prevCashBal = latest ? latest.cash_balance : target.principal_amount;
+      const prevCashBal = latest ? latest.cash_balance : 0;
 
       addRecord({
         date: todayIso,
         account_id: target.account_id,
-        portfolio_value: prevPortfolioVal + profit,
-        cash_balance: prevCashBal + profit,
-        net_cash_flow: profit,
+        portfolio_value: prevPortfolioVal + metrics.accruedProfit,
+        cash_balance: prevCashBal + metrics.accruedProfit,
+        net_cash_flow: metrics.accruedProfit,
       });
     }
 
-    // Mark as settled
+    // Roll settlement date forward to today and reset is_settled
     setCashInterests((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, is_settled: true } : i))
+      prev.map((i) =>
+        i.id === id
+          ? {
+              ...i,
+              last_settlement_date: todayIso,
+              is_settled: false,
+            }
+          : i
+      )
     );
   }
 
-  // Find due cash interests where maturity_date <= today and !is_settled
+  // Find due cash interests where nextMaturityDate <= today
   const dueCashInterests = useMemo(() => {
     if (!loaded) return [];
     const todayIso = new Date().toISOString().slice(0, 10);
-    return cashInterests.filter(
-      (item) => !item.is_settled && item.maturity_date && item.maturity_date <= todayIso
-    );
-  }, [cashInterests, loaded]);
+    return cashInterests.filter((item) => {
+      const accountRecords = records.filter((r) => r.account_id === item.account_id);
+      const metrics = calculateCashYieldMetrics(item, accountRecords, todayIso);
+      return metrics.isDue && !item.is_settled;
+    });
+  }, [cashInterests, records, loaded]);
 
   // Create local snapshot history item (max 5)
   function createSnapshot(accs: Account[], recs: PortfolioRecord[]) {

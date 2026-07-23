@@ -5,14 +5,16 @@ import { useData } from "@/context/DataContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { t, formatCurrency } from "@/lib/i18n";
 import { formatPersianDate } from "@/lib/persianDate";
+import { calculateCashYieldMetrics } from "@/lib/interestUtils";
 import { Bell, CheckCircle2, XCircle, Calendar, DollarSign, Percent, Sparkles } from "lucide-react";
 
 export const CashInterestMaturityModal: React.FC = () => {
-  const { dueCashInterests, settleCashInterest, accounts, currencyUnit } = useData();
+  const { dueCashInterests, settleCashInterest, accounts, records, currencyUnit } = useData();
   const { language } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const isRtl = language === "fa";
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   if (!dueCashInterests || dueCashInterests.length === 0) return null;
 
@@ -22,11 +24,8 @@ export const CashInterestMaturityModal: React.FC = () => {
   const accountObj = accounts.find((a) => a.id === currentItem.account_id);
   const accountName = accountObj ? accountObj.name : currentItem.title || "حساب وجه نقد";
 
-  // Calculate profit amount
-  const profitAmount =
-    currentItem.interest_period === "monthly"
-      ? currentItem.principal_amount * (currentItem.interest_rate / 100)
-      : currentItem.principal_amount * (currentItem.interest_rate / 100);
+  const accountRecords = records.filter((r) => r.account_id === currentItem.account_id);
+  const metrics = calculateCashYieldMetrics(currentItem, accountRecords, todayIso);
 
   const handleAction = (deposit: boolean) => {
     settleCashInterest(currentItem.id, deposit);
@@ -76,10 +75,10 @@ export const CashInterestMaturityModal: React.FC = () => {
           <div className="flex justify-between items-center text-xs">
             <span className="text-slate-500 dark:text-gray-400 flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 text-indigo-500" />
-              <span>{t("interest.maturityDate", language)}:</span>
+              <span>سررسید این ماه:</span>
             </span>
             <span className="font-medium text-slate-700 dark:text-gray-300">
-              {formatPersianDate(currentItem.maturity_date)}
+              {formatPersianDate(metrics.nextMaturityDate)}
             </span>
           </div>
 
@@ -89,7 +88,7 @@ export const CashInterestMaturityModal: React.FC = () => {
               <span>{t("interest.calcAmount", language)}:</span>
             </span>
             <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
-              {formatCurrency(profitAmount, language, currencyUnit)}
+              {formatCurrency(metrics.accruedProfit, language, currencyUnit)}
             </span>
           </div>
         </div>

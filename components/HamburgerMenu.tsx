@@ -81,24 +81,13 @@ export const HamburgerMenu: React.FC = () => {
           >
             {/* Drawer Header */}
             <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-slate-50/80 dark:bg-white/5">
-              <div className="flex items-center gap-3">
-                <div className="relative w-9 h-9 rounded-xl overflow-hidden shadow-sm border border-amber-400/40 shrink-0">
-                  <Image
-                    src="/icon.jpg"
-                    alt="Logo"
-                    fill
-                    className="object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                    {t("menu.title", language)}
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-gray-400">
-                    {t("header.title", language)}
-                  </p>
-                </div>
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                  {t("menu.title", language)}
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-gray-400">
+                  {t("header.title", language)}
+                </p>
               </div>
 
               <button
