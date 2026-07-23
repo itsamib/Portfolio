@@ -6,21 +6,51 @@ import { useLanguage } from "@/context/LanguageContext";
 import { t, formatCurrency } from "@/lib/i18n";
 import { formatPersianDate } from "@/lib/persianDate";
 import { calculateCashYieldMetrics } from "@/lib/interestUtils";
-import { Coins, Plus, Trash2, Calendar, Sparkles, Clock, ArrowUpRight } from "lucide-react";
+import { CashInterestItem } from "@/lib/types";
+import { Coins, Plus, Trash2, Edit2, Sparkles, Clock, Check, X } from "lucide-react";
 
 export const CashInterestManager: React.FC = () => {
-  const { accounts, records, cashInterests, addCashInterest, deleteCashInterest, currencyUnit } = useData();
+  const {
+    accounts,
+    records,
+    cashInterests,
+    addCashInterest,
+    editCashInterest,
+    deleteCashInterest,
+    currencyUnit,
+  } = useData();
   const { language } = useLanguage();
 
   const isRtl = language === "fa";
   const todayIso = new Date().toISOString().slice(0, 10);
 
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState("");
   const [interestRate, setInterestRate] = useState("");
   const [interestPeriod, setInterestPeriod] = useState<"yearly" | "monthly">("yearly");
   const [maturityDay, setMaturityDay] = useState<number>(1);
   const [startDate, setStartDate] = useState(todayIso);
   const [error, setError] = useState<string | null>(null);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setAccountId("");
+    setInterestRate("");
+    setInterestPeriod("yearly");
+    setMaturityDay(1);
+    setStartDate(todayIso);
+    setError(null);
+  };
+
+  const handleStartEdit = (item: CashInterestItem) => {
+    setEditingId(item.id);
+    setAccountId(item.account_id);
+    setInterestRate(String(item.interest_rate));
+    setInterestPeriod(item.interest_period);
+    setMaturityDay(item.maturity_day);
+    setStartDate(item.last_settlement_date || todayIso);
+    setError(null);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,25 +63,38 @@ export const CashInterestManager: React.FC = () => {
 
     const rate = parseFloat(interestRate);
     if (isNaN(rate) || rate <= 0) {
-      setError(isRtl ? "درصد سود باید یک عدد معتبر و بزرگتر از صفر باشد." : "Please enter a valid interest rate.");
+      setError(
+        isRtl
+          ? "درصد سود باید یک عدد معتبر و بزرگتر از صفر باشد."
+          : "Please enter a valid interest rate."
+      );
       return;
     }
 
     const accountObj = accounts.find((a) => a.id === accountId);
     const title = accountObj ? accountObj.name : "حساب وجه نقد";
 
-    addCashInterest({
-      account_id: accountId,
-      title,
-      interest_rate: rate,
-      interest_period: interestPeriod,
-      maturity_day: Math.min(31, Math.max(1, maturityDay)),
-      last_settlement_date: startDate,
-    });
+    if (editingId) {
+      editCashInterest(editingId, {
+        account_id: accountId,
+        title,
+        interest_rate: rate,
+        interest_period: interestPeriod,
+        maturity_day: Math.min(31, Math.max(1, maturityDay)),
+        last_settlement_date: startDate,
+      });
+    } else {
+      addCashInterest({
+        account_id: accountId,
+        title,
+        interest_rate: rate,
+        interest_period: interestPeriod,
+        maturity_day: Math.min(31, Math.max(1, maturityDay)),
+        last_settlement_date: startDate,
+      });
+    }
 
-    // Reset rate input
-    setInterestRate("");
-    setError(null);
+    resetForm();
   };
 
   return (
@@ -155,15 +198,33 @@ export const CashInterestManager: React.FC = () => {
             />
           </div>
 
-          {/* Submit Button */}
-          <div className="flex items-end">
+          {/* Submit / Update Button */}
+          <div className="flex items-end gap-2">
             <button
               type="submit"
-              className="glass-button w-full h-[42px] flex items-center justify-center gap-2"
+              className="glass-button flex-1 h-[42px] flex items-center justify-center gap-2"
             >
-              <Plus className="w-4 h-4" />
-              <span>{t("interest.add", language)}</span>
+              {editingId ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>{isRtl ? "ثبت ویرایش" : "Update"}</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  <span>{t("interest.add", language)}</span>
+                </>
+              )}
             </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="h-[42px] px-3 text-xs rounded-xl font-medium border border-slate-300 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           {error && <p className="col-span-full text-xs text-rose-600 dark:text-rose-400">{error}</p>}
@@ -200,13 +261,22 @@ export const CashInterestManager: React.FC = () => {
                       </span>
                     </div>
 
-                    <button
-                      onClick={() => deleteCashInterest(item.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl transition-colors"
-                      title="حذف تنظیمات سود"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleStartEdit(item)}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl transition-colors"
+                        title="ویرایش تنظیمات سود"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteCashInterest(item.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl transition-colors"
+                        title="حذف تنظیمات سود"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Daily Accrual & Forecast Stats */}

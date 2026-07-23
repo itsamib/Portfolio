@@ -6,6 +6,8 @@ import { useLanguage } from "@/context/LanguageContext";
 import DataTable, { DataTableColumn } from "@/components/DataTable";
 import BackButton from "@/components/BackButton";
 import CashInterestManager from "@/components/CashInterestManager";
+import FormattedNumberInput from "@/components/FormattedNumberInput";
+import CashFlowInput from "@/components/CashFlowInput";
 import { PortfolioRecord } from "@/lib/types";
 import { t, formatCurrency } from "@/lib/i18n";
 import { toPersianDate, formatPersianDate, jalaliToIso } from "@/lib/persianDate";
@@ -15,9 +17,10 @@ function todayIso() {
 }
 
 export default function DataEntryPage() {
-  const { accounts, records, addRecord, deleteRecord, currencyUnit } = useData();
+  const { accounts, records, addRecord, editRecord, deleteRecord, currencyUnit } = useData();
   const { language } = useLanguage();
 
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [date, setDate] = useState(todayIso());
   const [jalaliDateInput, setJalaliDateInput] = useState(toPersianDate(todayIso()));
   const [accountId, setAccountId] = useState("");
@@ -68,6 +71,18 @@ export default function DataEntryPage() {
     setPortfolioValue("");
     setCashBalance("");
     setNetCashFlow("0");
+    setEditingRecordId(null);
+  }
+
+  function handleStartEdit(r: PortfolioRecord) {
+    setEditingRecordId(r.id);
+    setDate(r.date);
+    setJalaliDateInput(toPersianDate(r.date));
+    setAccountId(r.account_id);
+    setPortfolioValue(String(r.portfolio_value));
+    setCashBalance(String(r.cash_balance));
+    setNetCashFlow(String(r.net_cash_flow));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function handleSubmit(e: FormEvent) {
@@ -87,13 +102,23 @@ export default function DataEntryPage() {
       return;
     }
 
-    addRecord({
-      date,
-      account_id: accountId,
-      portfolio_value: pv,
-      cash_balance: cb,
-      net_cash_flow: ncf,
-    });
+    if (editingRecordId) {
+      editRecord(editingRecordId, {
+        date,
+        account_id: accountId,
+        portfolio_value: pv,
+        cash_balance: cb,
+        net_cash_flow: ncf,
+      });
+    } else {
+      addRecord({
+        date,
+        account_id: accountId,
+        portfolio_value: pv,
+        cash_balance: cb,
+        net_cash_flow: ncf,
+      });
+    }
     resetForm();
   }
 
@@ -217,59 +242,52 @@ export default function DataEntryPage() {
               </div>
 
               {/* Portfolio Value */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-gray-400">
-                  {t("dataEntry.portfolioValue", language)}
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={portfolioValue}
-                  onChange={(e) => setPortfolioValue(e.target.value)}
-                  className="glass-input"
-                  placeholder="0"
-                  required
-                />
-              </div>
+              <FormattedNumberInput
+                label={t("dataEntry.portfolioValue", language)}
+                value={portfolioValue}
+                onChange={setPortfolioValue}
+                placeholder="0"
+                required
+              />
 
               {/* Cash Balance */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-gray-400">
-                  {t("dataEntry.cashBalance", language)}
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={cashBalance}
-                  onChange={(e) => setCashBalance(e.target.value)}
-                  className="glass-input"
-                  placeholder="0"
-                  required
-                />
-              </div>
+              <FormattedNumberInput
+                label={t("dataEntry.cashBalance", language)}
+                value={cashBalance}
+                onChange={setCashBalance}
+                placeholder="0"
+                required
+              />
 
-              {/* Net Cash Flow */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-gray-400">
-                  {t("dataEntry.netCashFlow", language)}
-                </label>
-                <input
-                  type="number"
-                  step="any"
+              {/* Net Cash Flow (Deposit / Withdrawal selector) */}
+              <div className="col-span-1 md:col-span-2">
+                <CashFlowInput
+                  label={t("dataEntry.netCashFlow", language)}
                   value={netCashFlow}
-                  onChange={(e) => setNetCashFlow(e.target.value)}
-                  className="glass-input"
-                  placeholder="0"
+                  onChange={setNetCashFlow}
                 />
               </div>
             </div>
 
             {formError && <p className="text-sm text-rose-600 dark:text-rose-400">{formError}</p>}
 
-            <div>
+            <div className="flex items-center gap-2">
               <button type="submit" className="glass-button">
-                {t("dataEntry.addRecord", language)}
+                {editingRecordId
+                  ? isRtl
+                    ? "ویرایش و بروزرسانی رکورد"
+                    : "Update Record"
+                  : t("dataEntry.addRecord", language)}
               </button>
+              {editingRecordId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-2 text-sm rounded-xl font-medium border border-slate-300 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                >
+                  {isRtl ? "لغو ویرایش" : "Cancel"}
+                </button>
+              )}
             </div>
           </>
         )}
@@ -283,6 +301,7 @@ export default function DataEntryPage() {
         columns={columns}
         rows={sortedRecords}
         getRowId={(r) => r.id}
+        onEdit={(r) => handleStartEdit(r)}
         onDelete={(r) => deleteRecord(r.id)}
         emptyMessage={t("table.noRecords", language)}
       />
