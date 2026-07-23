@@ -15,17 +15,21 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>('en');
-  const [theme, setThemeState] = useState<Theme>('light');
+  const [language, setLanguageState] = useState<Language>('fa'); // Default to Persian as requested
+  const [theme, setThemeState] = useState<Theme>('dark'); // Default to sleek dark mode
   const [mounted, setMounted] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
-    const savedLanguage = localStorage.getItem('ppt_language') as Language | null;
-    const savedTheme = localStorage.getItem('ppt_theme') as Theme | null;
+    try {
+      const savedLanguage = localStorage.getItem('ppt_language') as Language | null;
+      const savedTheme = localStorage.getItem('ppt_theme') as Theme | null;
 
-    if (savedLanguage) setLanguageState(savedLanguage);
-    if (savedTheme) setThemeState(savedTheme);
+      if (savedLanguage) setLanguageState(savedLanguage);
+      if (savedTheme) setThemeState(savedTheme);
+    } catch {
+      // ignore SSR/storage error
+    }
     
     setMounted(true);
   }, []);
@@ -33,26 +37,34 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Update localStorage and apply theme when language changes
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem('ppt_language', lang);
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr';
+    try {
+      localStorage.setItem('ppt_language', lang);
+    } catch {}
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr';
+    }
   };
 
   // Update localStorage and apply theme when theme changes
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem('ppt_theme', newTheme);
+    try {
+      localStorage.setItem('ppt_theme', newTheme);
+    } catch {}
     
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    if (typeof document !== 'undefined') {
+      if (newTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
   };
 
   // Set initial direction and theme on mount
   useEffect(() => {
-    if (mounted) {
+    if (mounted && typeof document !== 'undefined') {
       document.documentElement.lang = language;
       document.documentElement.dir = language === 'fa' ? 'rtl' : 'ltr';
       
@@ -63,10 +75,6 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
   }, [mounted, language, theme]);
-
-  if (!mounted) {
-    return <>{children}</>;
-  }
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, theme, setTheme }}>

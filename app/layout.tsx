@@ -1,11 +1,35 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
 import { DataProvider } from "@/context/DataContext";
+import { LanguageProvider } from "@/context/LanguageContext";
+import MainLayout from "@/components/MainLayout";
+import SWRegister from "@/components/SWRegister";
 
 export const metadata: Metadata = {
-  title: "Portfolio Performance Tracker",
-  description: "Track equity, cash flow, and ROI across your accounts.",
+  title: "پورتفولیو من | مدیریت سرمایه‌گذاری و تحلیل پورتفولیو",
+  description: "مدیریت و تحلیل عملکرد پورتفولیو، سود و زیان و بازدهی سرمایه‌گذاری با پشتیبانی از تاریخ شمسی و میلادی.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "پورتفولیو من",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#4f46e5",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({
@@ -14,14 +38,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-gray-950 text-gray-100 min-h-screen">
-        <DataProvider>
-          <Sidebar />
-          <main className="md:ml-60 min-h-screen p-4 pt-16 sm:p-6 sm:pt-16 md:p-8">
-            <div className="max-w-6xl mx-auto">{children}</div>
-          </main>
-        </DataProvider>
+    <html lang="fa" dir="rtl">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="theme-color" content="#4f46e5" />
+      </head>
+      <body className="antialiased min-h-screen">
+        <SWRegister />
+        <LanguageProvider>
+          <DataProvider>
+            <MainLayout>{children}</MainLayout>
+          </DataProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

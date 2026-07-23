@@ -11,8 +11,11 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { EnrichedRecord } from "@/lib/types";
+import { useLanguage } from "@/context/LanguageContext";
+import { formatCurrency, t } from "@/lib/i18n";
+import { toPersianDate } from "@/lib/persianDate";
 
-const COLORS = ["#818cf8", "#34d399", "#f472b6", "#fbbf24", "#38bdf8", "#a78bfa"];
+const COLORS = ["#6366f1", "#10b981", "#ec4899", "#f59e0b", "#06b6d4", "#8b5cf6"];
 
 interface Props {
   records: EnrichedRecord[];
@@ -22,16 +25,20 @@ interface Props {
 
 export default function DailyProfitBarChart({
   records,
-  title = "Daily Profit",
+  title,
   nameMap = {},
 }: Props) {
+  const { language } = useLanguage();
+  const chartTitle = title || t("chart.dailyProfit", language);
+
   // Pivot: one row per date, one field per account_id
   const accountIds = Array.from(new Set(records.map((r) => r.account_id)));
   const dateMap = new Map<string, Record<string, any>>();
 
   for (const r of records) {
     if (!dateMap.has(r.date)) {
-      dateMap.set(r.date, { date: r.date });
+      const displayDate = language === "fa" ? toPersianDate(r.date) : r.date;
+      dateMap.set(r.date, { date: r.date, displayDate });
     }
     dateMap.get(r.date)![r.account_id] = r.daily_profit;
   }
@@ -42,19 +49,20 @@ export default function DailyProfitBarChart({
 
   return (
     <div className="glass-card p-5">
-      <h3 className="text-sm font-medium text-gray-300 mb-4">{title}</h3>
+      <h3 className="text-sm font-semibold text-slate-800 dark:text-gray-200 mb-4">{chartTitle}</h3>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-          <XAxis dataKey="date" stroke="#6b7280" fontSize={12} tickLine={false} />
-          <YAxis stroke="#6b7280" fontSize={12} tickLine={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(156,163,175,0.15)" />
+          <XAxis dataKey="displayDate" stroke="#9ca3af" fontSize={11} tickLine={false} />
+          <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#0b0f1a",
-              border: "1px solid rgba(255,255,255,0.1)",
+              backgroundColor: "#0f172a",
+              border: "1px solid rgba(255,255,255,0.15)",
               borderRadius: "0.75rem",
-              color: "#f3f4f6",
+              color: "#f8fafc",
             }}
+            formatter={(value: any) => [formatCurrency(Number(value), language), ""]}
           />
           <Legend
             wrapperStyle={{ fontSize: 12, color: "#9ca3af" }}

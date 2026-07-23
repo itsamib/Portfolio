@@ -1,6 +1,20 @@
+export type CurrencyUnit = 'toman' | 'rial' | 'million_toman' | 'usd';
+
 export interface Account {
   id: string;
   name: string;
+  created_at: string;
+}
+
+export interface CashInterestItem {
+  id: string;
+  account_id: string;
+  title: string;
+  principal_amount: number; // Principal cash amount
+  interest_rate: number; // Interest rate percentage e.g. 20%
+  interest_period: 'yearly' | 'monthly'; // 'yearly' or 'monthly'
+  maturity_date: string; // ISO date string YYYY-MM-DD
+  is_settled?: boolean; // whether processed/settled
   created_at: string;
 }
 

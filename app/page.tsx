@@ -3,28 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Wallet, TrendingUp, Percent } from "lucide-react";
 import { useData } from "@/context/DataContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { calculatePortfolio } from "@/lib/api";
 import { CalculationResponse } from "@/lib/types";
+import { t, formatCurrency, formatPercent } from "@/lib/i18n";
 import MetricCard from "@/components/MetricCard";
 import DataTable, { DataTableColumn } from "@/components/DataTable";
 import DailyProfitBarChart from "@/components/charts/DailyProfitBarChart";
 import EquityLineChart from "@/components/charts/EquityLineChart";
-
-function formatCurrency(value: number) {
-  return value.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
-}
-
-function formatPercent(value: number | null) {
-  if (value === null || Number.isNaN(value)) return "—";
-  return `${(value * 100).toFixed(1)}%`;
-}
+import ProfitTimePeriods from "@/components/ProfitTimePeriods";
 
 export default function DashboardPage() {
-  const { accounts, records, loaded } = useData();
+  const { accounts, records, loaded, currencyUnit } = useData();
+  const { language } = useLanguage();
   const [result, setResult] = useState<CalculationResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,102 +55,112 @@ export default function DashboardPage() {
   const columns: DataTableColumn<CalculationResponse["summary"][number]>[] = [
     {
       key: "account",
-      header: "Account",
+      header: t("table.account", language),
       render: (row) => nameMap[row.account_id] ?? row.account_id,
     },
     {
       key: "equity",
-      header: "Latest Equity",
+      header: t("table.equity", language),
       align: "right",
-      render: (row) => formatCurrency(row.total_equity),
+      render: (row) => formatCurrency(row.total_equity, language, currencyUnit),
     },
     {
       key: "profit",
-      header: "Cumulative Profit",
+      header: t("table.profit", language),
       align: "right",
       render: (row) => (
-        <span className={row.cumulative_profit >= 0 ? "text-profit" : "text-loss"}>
-          {formatCurrency(row.cumulative_profit)}
+        <span className={row.cumulative_profit >= 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-rose-600 dark:text-rose-400 font-medium"}>
+          {formatCurrency(row.cumulative_profit, language, currencyUnit)}
         </span>
       ),
     },
     {
       key: "net_flow",
-      header: "Total Net Flow",
+      header: t("table.netCashFlow", language),
       align: "right",
-      render: (row) => formatCurrency(row.total_net_flow),
+      render: (row) => formatCurrency(row.total_net_flow, language, currencyUnit),
     },
     {
       key: "roi",
-      header: "ROI",
+      header: t("table.roi", language),
       align: "right",
       render: (row) => (
         <span
           className={
             row.roi === null
-              ? "text-gray-500"
+              ? "text-slate-400 dark:text-gray-500"
               : row.roi >= 0
-              ? "text-profit"
-              : "text-loss"
+              ? "text-emerald-600 dark:text-emerald-400 font-medium"
+              : "text-rose-600 dark:text-rose-400 font-medium"
           }
         >
-          {formatPercent(row.roi)}
+          {formatPercent(row.roi, language)}
         </span>
       ),
     },
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 pb-12">
       <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-gray-400 text-sm mt-1">
-          Overview across all {accounts.length} account
-          {accounts.length === 1 ? "" : "s"}.
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          {t("dashboard.title", language)}
+        </h1>
+        <p className="text-slate-500 dark:text-gray-400 text-sm mt-1">
+          {t("dashboard.subtitle", language)}
         </p>
       </div>
 
       {error && (
-        <div className="glass-card p-4 border-loss/40 text-loss text-sm">
+        <div className="glass-card p-4 border-rose-500/40 text-rose-600 dark:text-rose-400 text-sm">
           {error}
         </div>
       )}
 
       {!loading && loaded && records.length === 0 && (
-        <div className="glass-card p-8 text-center text-sm text-gray-500">
-          No data yet. Add accounts and records from the Data Entry page to see
-          your dashboard come alive.
+        <div className="glass-card p-8 text-center text-sm text-slate-500 dark:text-gray-400">
+          {t("dashboard.noData", language)}
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <MetricCard
-          title="Total Equity"
-          value={formatCurrency(totals.equity)}
-          icon={<Wallet className="w-4 h-4" />}
+          title={t("metric.totalEquity", language)}
+          value={formatCurrency(totals.equity, language, currencyUnit)}
+          icon={<Wallet className="w-5 h-5" />}
         />
         <MetricCard
-          title="Total Net Profit"
-          value={formatCurrency(totals.profit)}
+          title={t("metric.cumulativeProfit", language)}
+          value={formatCurrency(totals.profit, language, currencyUnit)}
           tone={totals.profit >= 0 ? "positive" : "negative"}
-          icon={<TrendingUp className="w-4 h-4" />}
+          icon={<TrendingUp className="w-5 h-5" />}
         />
         <MetricCard
-          title="Overall ROI"
-          value={formatPercent(totals.roi)}
+          title={t("metric.roi", language)}
+          value={formatPercent(totals.roi, language)}
           tone={
             totals.roi === null ? "neutral" : totals.roi >= 0 ? "positive" : "negative"
           }
-          icon={<Percent className="w-4 h-4" />}
+          icon={<Percent className="w-5 h-5" />}
         />
       </div>
 
+      {/* Time-based Profit Analysis (Daily, Weekly, Monthly, 3M, 6M, Yearly) */}
+      {result && result.records.length > 0 && (
+        <ProfitTimePeriods records={result.records} />
+      )}
+
       {result && result.summary.length > 0 && (
-        <DataTable
-          columns={columns}
-          rows={result.summary}
-          getRowId={(row) => row.account_id}
-        />
+        <div className="flex flex-col gap-3">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+            {t("dashboard.accountSummary", language)}
+          </h2>
+          <DataTable
+            columns={columns}
+            rows={result.summary}
+            getRowId={(row) => row.account_id}
+          />
+        </div>
       )}
 
       {result && result.records.length > 0 && (

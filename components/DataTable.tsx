@@ -2,6 +2,7 @@
 
 import { ReactNode } from "react";
 import { Trash2 } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 
 export interface DataTableColumn<T> {
   key: string;
@@ -25,9 +26,12 @@ export default function DataTable<T>({
   onDelete,
   emptyMessage = "No records yet.",
 }: DataTableProps<T>) {
+  const { language } = useLanguage();
+  const isRtl = language === "fa";
+
   if (rows.length === 0) {
     return (
-      <div className="glass-card p-8 text-center text-sm text-gray-500">
+      <div className="glass-card p-8 text-center text-sm text-slate-500 dark:text-gray-400">
         {emptyMessage}
       </div>
     );
@@ -37,42 +41,58 @@ export default function DataTable<T>({
     <div className="glass-card overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/10 text-left text-gray-400">
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                className={`px-4 py-3 font-medium ${
-                  col.align === "right" ? "text-right" : "text-left"
-                }`}
-              >
-                {col.header}
-              </th>
-            ))}
-            {onDelete && <th className="px-4 py-3 w-10" />}
+          <tr className="border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-gray-400">
+            {columns.map((col) => {
+              const alignClass =
+                col.align === "right"
+                  ? isRtl
+                    ? "text-left"
+                    : "text-right"
+                  : isRtl
+                  ? "text-right"
+                  : "text-left";
+              return (
+                <th
+                  key={col.key}
+                  className={`px-4 py-3.5 font-medium whitespace-nowrap ${alignClass}`}
+                >
+                  {col.header}
+                </th>
+              );
+            })}
+            {onDelete && <th className="px-4 py-3.5 w-10" />}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-slate-800 dark:text-gray-200">
           {rows.map((row) => (
             <tr
               key={getRowId(row)}
-              className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors"
+              className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
-              {columns.map((col) => (
-                <td
-                  key={col.key}
-                  className={`px-4 py-3 ${
-                    col.align === "right" ? "text-right" : "text-left"
-                  }`}
-                >
-                  {col.render(row)}
-                </td>
-              ))}
+              {columns.map((col) => {
+                const alignClass =
+                  col.align === "right"
+                    ? isRtl
+                      ? "text-left"
+                      : "text-right"
+                    : isRtl
+                    ? "text-right"
+                    : "text-left";
+                return (
+                  <td
+                    key={col.key}
+                    className={`px-4 py-3.5 whitespace-nowrap ${alignClass}`}
+                  >
+                    {col.render(row)}
+                  </td>
+                );
+              })}
               {onDelete && (
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3.5 text-center">
                   <button
                     onClick={() => onDelete(row)}
                     aria-label="Delete row"
-                    className="text-gray-500 hover:text-loss transition-colors"
+                    className="text-slate-400 hover:text-rose-600 dark:text-gray-500 dark:hover:text-rose-400 transition-colors p-1"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

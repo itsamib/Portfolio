@@ -1,0 +1,6 @@
+{
+  "name": "Portfolio Performance Tracker",
+  "description": "Track equity, cash flow, and ROI across your portfolio accounts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

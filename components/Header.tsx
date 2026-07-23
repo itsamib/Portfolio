@@ -1,84 +1,56 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useLanguage } from '@/context/LanguageContext';
-import { t } from '@/lib/i18n';
-import { Moon, Sun, Globe } from 'lucide-react';
+import React, { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
+import { t } from "@/lib/i18n";
+import { Moon, Sun } from "lucide-react";
+import HamburgerMenu from "@/components/HamburgerMenu";
 
 export const Header: React.FC = () => {
-  const { language, setLanguage, theme, setTheme } = useLanguage();
+  const { language, theme, setTheme } = useLanguage();
+  const [isRotating, setIsRotating] = useState(false);
+
+  const toggleTheme = () => {
+    setIsRotating(true);
+    setTheme(theme === "light" ? "dark" : "light");
+    setTimeout(() => setIsRotating(false), 500);
+  };
 
   return (
-    <header className="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-md border-b border-gray-200 dark:border-gray-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-4">
-          {/* Title */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">P</span>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {t('header.title', language)}
+    <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-white/10 transition-colors">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-14 sm:h-16">
+          {/* Logo & Short Title */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <h1 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white tracking-tight">
+              {t("header.title", language)}
             </h1>
           </div>
 
-          {/* Controls */}
-          <div className="flex items-center gap-4">
-            {/* Language Switcher */}
-            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-              <button
-                onClick={() => setLanguage('en')}
-                className={`flex items-center gap-1 px-3 py-2 rounded font-medium transition-colors ${
-                  language === 'en'
-                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+          {/* Minimal Controls: Theme Toggle & Hamburger Drawer */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Theme Toggle Button (Sun #FDB813 / Moon #C0C0C0) with rotation animation */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-gray-800/80 dark:hover:bg-gray-700/80 border border-slate-200 dark:border-gray-700/60 transition-all active:scale-95 flex items-center justify-center"
+              title={theme === "light" ? t("header.darkMode", language) : t("header.lightMode", language)}
+              aria-label="Toggle Theme"
+            >
+              <div
+                className={`transition-transform duration-500 ease-in-out ${
+                  isRotating ? "rotate-180" : "rotate-0"
                 }`}
-                title={t('header.language', language)}
               >
-                <Globe size={18} />
-                <span className="hidden sm:inline">EN</span>
-              </button>
-              <button
-                onClick={() => setLanguage('fa')}
-                className={`flex items-center gap-1 px-3 py-2 rounded font-medium transition-colors ${
-                  language === 'fa'
-                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
-                title={t('header.language', language)}
-              >
-                <Globe size={18} />
-                <span className="hidden sm:inline">FA</span>
-              </button>
-            </div>
+                {theme === "light" ? (
+                  <Sun className="w-5 h-5 text-[#FDB813] fill-[#FDB813]/20" />
+                ) : (
+                  <Moon className="w-5 h-5 text-[#C0C0C0] fill-[#C0C0C0]/20" />
+                )}
+              </div>
+            </button>
 
-            {/* Theme Switcher */}
-            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-              <button
-                onClick={() => setTheme('light')}
-                className={`flex items-center gap-2 px-3 py-2 rounded transition-colors ${
-                  theme === 'light'
-                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
-                title={t('header.lightMode', language)}
-              >
-                <Sun size={18} />
-                <span className="hidden sm:inline text-sm">{t('header.lightMode', language)}</span>
-              </button>
-              <button
-                onClick={() => setTheme('dark')}
-                className={`flex items-center gap-2 px-3 py-2 rounded transition-colors ${
-                  theme === 'dark'
-                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
-                title={t('header.darkMode', language)}
-              >
-                <Moon size={18} />
-                <span className="hidden sm:inline text-sm">{t('header.darkMode', language)}</span>
-              </button>
-            </div>
+            {/* Hamburger Drawer Menu Button ☰ */}
+            <HamburgerMenu />
           </div>
         </div>
       </div>

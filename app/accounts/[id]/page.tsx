@@ -5,30 +5,24 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Wallet, TrendingUp, Percent, ArrowLeftRight } from "lucide-react";
 import { useData } from "@/context/DataContext";
+import { useLanguage } from "@/context/LanguageContext";
+import BackButton from "@/components/BackButton";
 import { calculatePortfolio } from "@/lib/api";
 import { CalculationResponse } from "@/lib/types";
+import { t, formatCurrency, formatPercent } from "@/lib/i18n";
 import MetricCard from "@/components/MetricCard";
 import EquityLineChart from "@/components/charts/EquityLineChart";
 import DailyProfitBarChart from "@/components/charts/DailyProfitBarChart";
 import CumulativeProfitAreaChart from "@/components/charts/CumulativeProfitAreaChart";
-
-function formatCurrency(value: number) {
-  return value.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
-}
-
-function formatPercent(value: number | null) {
-  if (value === null || Number.isNaN(value)) return "—";
-  return `${(value * 100).toFixed(1)}%`;
-}
+import ProfitTimePeriods from "@/components/ProfitTimePeriods";
 
 export default function AccountDashboardPage() {
   const params = useParams<{ id: string }>();
   const accountId = params.id;
-  const { accounts, records, loaded } = useData();
+  const { accounts, records, loaded, currencyUnit } = useData();
+  const { language } = useLanguage();
+
+  const isRtl = language === "fa";
 
   const account = accounts.find((a) => a.id === accountId);
   const accountRecords = useMemo(
@@ -63,58 +57,58 @@ export default function AccountDashboardPage() {
   if (!account) {
     return (
       <div className="flex flex-col gap-4">
-        <Link href="/accounts" className="text-sm text-accent flex items-center gap-1 w-fit">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to accounts
-        </Link>
-        <div className="glass-card p-8 text-center text-sm text-gray-500">
-          Account not found. It may have been deleted.
+        <BackButton label={t("account.backToAccounts", language)} />
+        <div className="glass-card p-8 text-center text-sm text-slate-500 dark:text-gray-400">
+          {t("account.notFound", language)}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <Link href="/accounts" className="text-sm text-accent flex items-center gap-1 w-fit mb-2">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to accounts
-        </Link>
-        <h1 className="text-2xl font-semibold">{account.name}</h1>
-        <p className="text-gray-400 text-sm mt-1">
-          {accountRecords.length} record{accountRecords.length === 1 ? "" : "s"} logged.
-        </p>
+    <div className="flex flex-col gap-6 pb-12">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">{account.name}</h1>
+          <p className="text-slate-500 dark:text-gray-400 text-sm mt-1">
+            {accountRecords.length} {t("account.logged", language)}
+          </p>
+        </div>
+        <div>
+          <BackButton label={t("account.backToAccounts", language)} />
+        </div>
       </div>
 
       {error && (
-        <div className="glass-card p-4 border-loss/40 text-loss text-sm">{error}</div>
+        <div className="glass-card p-4 border-rose-500/40 text-rose-600 dark:text-rose-400 text-sm">{error}</div>
       )}
 
       {!loading && accountRecords.length === 0 && (
-        <div className="glass-card p-8 text-center text-sm text-gray-500">
-          No records for this account yet. Add some from the Data Entry page.
+        <div className="glass-card p-8 text-center text-sm text-slate-500 dark:text-gray-400">
+          {t("account.noRecords", language)}
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          title="Latest Equity"
-          value={formatCurrency(summary?.total_equity ?? 0)}
+          title={t("metric.latestEquity", language)}
+          value={formatCurrency(summary?.total_equity ?? 0, language, currencyUnit)}
           icon={<Wallet className="w-4 h-4" />}
         />
         <MetricCard
-          title="Cumulative Profit"
-          value={formatCurrency(summary?.cumulative_profit ?? 0)}
+          title={t("metric.cumulativeProfit", language)}
+          value={formatCurrency(summary?.cumulative_profit ?? 0, language, currencyUnit)}
           tone={(summary?.cumulative_profit ?? 0) >= 0 ? "positive" : "negative"}
           icon={<TrendingUp className="w-4 h-4" />}
         />
         <MetricCard
-          title="Total Net Flow"
-          value={formatCurrency(summary?.total_net_flow ?? 0)}
+          title={t("metric.totalNetFlow", language)}
+          value={formatCurrency(summary?.total_net_flow ?? 0, language, currencyUnit)}
           icon={<ArrowLeftRight className="w-4 h-4" />}
         />
         <MetricCard
-          title="ROI"
-          value={formatPercent(summary?.roi ?? null)}
+          title={t("metric.roi", language)}
+          value={formatPercent(summary?.roi ?? null, language)}
           tone={
             summary?.roi == null ? "neutral" : summary.roi >= 0 ? "positive" : "negative"
           }
@@ -122,12 +116,17 @@ export default function AccountDashboardPage() {
         />
       </div>
 
+      {/* Period-based profit breakdown for this account */}
+      {result && result.records.length > 0 && (
+        <ProfitTimePeriods records={result.records} accountId={accountId} />
+      )}
+
       {result && result.records.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <EquityLineChart records={result.records} title="Equity" />
-          <DailyProfitBarChart records={result.records} title="Daily Profit" />
+          <EquityLineChart records={result.records} title={t("chart.equity", language)} />
+          <DailyProfitBarChart records={result.records} title={t("chart.dailyProfit", language)} />
           <div className="lg:col-span-2">
-            <CumulativeProfitAreaChart records={result.records} title="Cumulative Profit" />
+            <CumulativeProfitAreaChart records={result.records} title={t("chart.cumulativeProfit", language)} />
           </div>
         </div>
       )}

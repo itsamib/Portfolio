@@ -2,9 +2,19 @@
 
 import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
-import { t } from '@/lib/i18n';
-import { toPersianDate, getPersianWeekNumber, getPersianQuarter, getPersianMonthName } from '@/lib/persianDate';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { t, formatCurrency } from '@/lib/i18n';
+import { toPersianDate, getPersianMonthName } from '@/lib/persianDate';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from 'recharts';
+import { CalendarRange, TrendingUp, DollarSign, Layers } from 'lucide-react';
 
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'sixMonths' | 'yearly';
 
@@ -12,17 +22,23 @@ interface ProfitRecord {
   date: string;
   account_id: string;
   daily_profit: number;
-  cumulative_profit: number;
+  cumulative_profit?: number;
 }
 
 interface Props {
   records: ProfitRecord[];
   accountId?: string;
+  title?: string;
 }
 
-export const ProfitTimePeriods: React.FC<Props> = ({ records, accountId }) => {
+import { useData } from '@/context/DataContext';
+
+export const ProfitTimePeriods: React.FC<Props> = ({ records, accountId, title }) => {
   const { language } = useLanguage();
+  const { currencyUnit } = useData();
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('monthly');
+
+  const isRtl = language === 'fa';
 
   const periods: { key: TimePeriod; label: string }[] = [
     { key: 'daily', label: t('period.daily', language) },
@@ -34,118 +50,179 @@ export const ProfitTimePeriods: React.FC<Props> = ({ records, accountId }) => {
   ];
 
   const filteredRecords = useMemo(() => {
-    return records.filter(r => !accountId || r.account_id === accountId).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return records
+      .filter((r) => !accountId || r.account_id === accountId)
+      .sort((a, b) => a.date.localeCompare(b.date));
   }, [records, accountId]);
 
   const groupedData = useMemo(() => {
     if (filteredRecords.length === 0) return [];
 
-    const grouped: Record<string, { total: number; count: number; date: string }> = {};
+    const grouped: Record<string, { total: number; count: number; label: string; orderKey: string }> = {};
 
-    filteredRecords.forEach(record => {
-      const date = new Date(record.date);
-      let groupKey: string;
-      let displayLabel: string;
+    filteredRecords.forEach((record) => {
+      const cleanDate = record.date.slice(0, 10);
+      const [gy, gm, gd] = cleanDate.split('-').map(Number);
+      const dateObj = new Date(gy, gm - 1, gd);
 
-      switch (selectedPeriod) {
-        case 'daily':
-          groupKey = record.date;
-          displayLabel = language === 'fa' 
-            ? toPersianDate(record.date)
-            : record.date;
-          break;
+      let groupKey = '';
+      let displayLabel = '';
+      let orderKey = cleanDate;
 
-        case 'weekly': {
-          const year = date.getFullYear();
-          const weekNum = Math.ceil((date.getDate() - date.getDay() + 1) / 7);
-          groupKey = `${year}-W${weekNum}`;
-          displayLabel = language === 'fa'
-            ? `هفته ${getPersianWeekNumber(date)}`
-            : `Week ${weekNum}`;
-          break;
+      if (language === 'fa') {
+        const pDateStr = toPersianDate(dateObj);
+        const [jy, jm, jd] = pDateStr.split('/').map(Number);
+
+        switch (selectedPeriod) {
+          case 'daily':
+            groupKey = pDateStr;
+            displayLabel = `${jd} ${getPersianMonthName(jm)}`;
+            orderKey = `${jy}${String(jm).padStart(2, '0')}${String(jd).padStart(2, '0')}`;
+            break;
+
+          case 'weekly': {
+            const dayOfYear = jm <= 6 ? (jm - 1) * 31 + jd : 186 + (jm - 7) * 30 + jd;
+            const weekNum = Math.ceil(dayOfYear / 7);
+            groupKey = `${jy}-W${weekNum}`;
+            displayLabel = `هفته ${weekNum} (${jy})`;
+            orderKey = `${jy}W${String(weekNum).padStart(2, '0')}`;
+            break;
+          }
+
+          case 'monthly': {
+            groupKey = `${jy}-${jm}`;
+            displayLabel = `${getPersianMonthName(jm)} ${jy}`;
+            orderKey = `${jy}${String(jm).padStart(2, '0')}`;
+            break;
+          }
+
+          case 'quarterly': {
+            const jq = jm <= 3 ? 1 : jm <= 6 ? 2 : jm <= 9 ? 3 : 4;
+            groupKey = `${jy}-Q${jq}`;
+            displayLabel = `۳ ماهه ${jq} (${jy})`;
+            orderKey = `${jy}Q${jq}`;
+            break;
+          }
+
+          case 'sixMonths': {
+            const jh = jm <= 6 ? 1 : 2;
+            groupKey = `${jy}-H${jh}`;
+            displayLabel = `${jh === 1 ? '۶ ماهه اول' : '۶ ماهه دوم'} (${jy})`;
+            orderKey = `${jy}H${jh}`;
+            break;
+          }
+
+          case 'yearly': {
+            groupKey = `${jy}`;
+            displayLabel = `سال ${jy}`;
+            orderKey = `${jy}`;
+            break;
+          }
         }
+      } else {
+        // English
+        switch (selectedPeriod) {
+          case 'daily':
+            groupKey = cleanDate;
+            displayLabel = cleanDate;
+            orderKey = cleanDate;
+            break;
 
-        case 'monthly': {
-          const year = date.getFullYear();
-          const month = date.getMonth() + 1;
-          groupKey = `${year}-${month}`;
-          displayLabel = language === 'fa'
-            ? `${getPersianMonthName(month)} ${year + 622}`
-            : `${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
-          break;
+          case 'weekly': {
+            const weekNum = Math.ceil((gd + new Date(gy, gm - 1, 1).getDay()) / 7);
+            groupKey = `${gy}-W${weekNum}`;
+            displayLabel = `Week ${weekNum} (${gy})`;
+            orderKey = `${gy}W${String(weekNum).padStart(2, '0')}`;
+            break;
+          }
+
+          case 'monthly': {
+            groupKey = `${gy}-${gm}`;
+            displayLabel = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            orderKey = `${gy}${String(gm).padStart(2, '0')}`;
+            break;
+          }
+
+          case 'quarterly': {
+            const q = Math.ceil(gm / 3);
+            groupKey = `${gy}-Q${q}`;
+            displayLabel = `Q${q} ${gy}`;
+            orderKey = `${gy}Q${q}`;
+            break;
+          }
+
+          case 'sixMonths': {
+            const h = gm <= 6 ? 1 : 2;
+            groupKey = `${gy}-H${h}`;
+            displayLabel = `H${h} ${gy}`;
+            orderKey = `${gy}H${h}`;
+            break;
+          }
+
+          case 'yearly': {
+            groupKey = `${gy}`;
+            displayLabel = `${gy}`;
+            orderKey = `${gy}`;
+            break;
+          }
         }
-
-        case 'quarterly': {
-          const year = date.getFullYear();
-          const quarter = Math.ceil((date.getMonth() + 1) / 3);
-          groupKey = `${year}-Q${quarter}`;
-          displayLabel = language === 'fa'
-            ? `سه ماهه ${getPersianQuarter(date)} سال ${year + 622}`
-            : `Q${quarter} ${year}`;
-          break;
-        }
-
-        case 'sixMonths': {
-          const year = date.getFullYear();
-          const half = date.getMonth() < 6 ? 1 : 2;
-          groupKey = `${year}-H${half}`;
-          displayLabel = language === 'fa'
-            ? `${half === 1 ? 'نیمه اول' : 'نیمه دوم'} سال ${year + 622}`
-            : `H${half} ${year}`;
-          break;
-        }
-
-        case 'yearly':
-          groupKey = String(date.getFullYear());
-          displayLabel = language === 'fa'
-            ? `سال ${date.getFullYear() + 622}`
-            : String(date.getFullYear());
-          break;
-
-        default:
-          groupKey = record.date;
-          displayLabel = record.date;
       }
 
       if (!grouped[groupKey]) {
-        grouped[groupKey] = { total: 0, count: 0, date: displayLabel };
+        grouped[groupKey] = { total: 0, count: 0, label: displayLabel, orderKey };
       }
 
       grouped[groupKey].total += record.daily_profit;
       grouped[groupKey].count += 1;
     });
 
-    return Object.values(grouped).map(item => ({
-      name: item.date,
-      profit: Math.round(item.total * 100) / 100,
-      count: item.count,
-    }));
+    return Object.values(grouped)
+      .sort((a, b) => a.orderKey.localeCompare(b.orderKey))
+      .map((item) => ({
+        name: item.label,
+        profit: Math.round(item.total * 100) / 100,
+        count: item.count,
+      }));
   }, [filteredRecords, selectedPeriod, language]);
+
+  const totalProfitInPeriod = useMemo(() => {
+    return groupedData.reduce((sum, item) => sum + item.profit, 0);
+  }, [groupedData]);
+
+  const latestProfitInPeriod = useMemo(() => {
+    if (groupedData.length === 0) return 0;
+    return groupedData[groupedData.length - 1].profit;
+  }, [groupedData]);
 
   if (filteredRecords.length === 0) {
     return (
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center">
-        <p className="text-gray-600 dark:text-gray-400">{t('msg.noProfitData', language)}</p>
+      <div className="glass-card p-8 text-center text-sm text-slate-500 dark:text-gray-400">
+        {t('msg.noProfitData', language)}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 bg-white dark:bg-gray-900 p-6 rounded-lg shadow-md">
-      {/* Period Selector */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          {t('msg.selectPeriod', language)}
-        </label>
-        <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 ${language === 'fa' ? 'flex-row-reverse' : ''}`}>
-          {periods.map(period => (
+    <div className="glass-card p-5 sm:p-6 space-y-6">
+      {/* Header & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
+        <div className="flex items-center gap-2">
+          <CalendarRange className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <h3 className="font-semibold text-slate-900 dark:text-gray-100 text-base">
+            {title || t('dashboard.profitByPeriod', language)}
+          </h3>
+        </div>
+
+        {/* Period Selector Tabs */}
+        <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200 dark:border-white/10">
+          {periods.map((period) => (
             <button
               key={period.key}
               onClick={() => setSelectedPeriod(period.key)}
-              className={`px-3 py-2 rounded text-sm font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 selectedPeriod === period.key
-                  ? 'bg-blue-500 text-white shadow-md'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100'
               }`}
             >
               {period.label}
@@ -155,63 +232,90 @@ export const ProfitTimePeriods: React.FC<Props> = ({ records, accountId }) => {
       </div>
 
       {/* Chart */}
-      <div className="h-96 w-full">
+      <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={groupedData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis 
-              dataKey="name" 
-              angle={-45}
+          <BarChart data={groupedData} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(156, 163, 175, 0.2)" />
+            <XAxis
+              dataKey="name"
+              stroke="#9ca3af"
+              fontSize={11}
+              tickLine={false}
+              interval={0}
+              angle={-20}
               textAnchor="end"
-              height={100}
-              tick={{ fontSize: 12 }}
-              stroke="#6b7280"
             />
-            <YAxis 
-              stroke="#6b7280"
-              tick={{ fontSize: 12 }}
+            <YAxis
+              stroke="#9ca3af"
+              fontSize={11}
+              tickLine={false}
+              tickFormatter={(val) => `${val >= 0 ? '' : '-'}$${Math.abs(val)}`}
             />
-            <Tooltip 
+            <Tooltip
               contentStyle={{
-                backgroundColor: '#1f2937',
-                border: 'none',
-                borderRadius: '8px',
-                color: '#fff',
+                backgroundColor: '#0f172a',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: '0.75rem',
+                color: '#f8fafc',
+                fontSize: '0.85rem',
               }}
-              formatter={(value: any) => `${value.toFixed(2)}`}
-              labelStyle={{ color: '#fff' }}
+              formatter={(value: any) => [formatCurrency(Number(value), language, currencyUnit), t('metric.dailyProfit', language)]}
+              labelStyle={{ color: '#94a3b8', fontWeight: 600 }}
             />
-            <Bar 
-              dataKey="profit" 
-              fill="#3b82f6" 
-              name={t('metric.dailyProfit', language)}
-              radius={[8, 8, 0, 0]}
-            />
+            <Bar dataKey="profit" radius={[6, 6, 0, 0]}>
+              {groupedData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={entry.profit >= 0 ? '#10b981' : '#ef4444'}
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-          <p className="text-sm text-gray-600 dark:text-gray-400">{t('metric.profitChange', language)}</p>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-2">
-            {groupedData.length > 0 ? groupedData[groupedData.length - 1]?.profit.toFixed(2) : '0.00'}
-          </p>
+      {/* Summary Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200 dark:border-white/10">
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500">
+            <TrendingUp className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 dark:text-gray-400">
+              {t('metric.profitChange', language)} ({periods.find((p) => p.key === selectedPeriod)?.label})
+            </p>
+            <p className={`text-base font-bold tabular-nums mt-0.5 ${latestProfitInPeriod >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+              {formatCurrency(latestProfitInPeriod, language, currencyUnit)}
+            </p>
+          </div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-          <p className="text-sm text-gray-600 dark:text-gray-400">{t('metric.cumulativeProfit', language)}</p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-2">
-            {groupedData.reduce((sum, item) => sum + item.profit, 0).toFixed(2)}
-          </p>
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+            <DollarSign className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 dark:text-gray-400">
+              {t('metric.cumulativeProfit', language)}
+            </p>
+            <p className={`text-base font-bold tabular-nums mt-0.5 ${totalProfitInPeriod >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+              {formatCurrency(totalProfitInPeriod, language, currencyUnit)}
+            </p>
+          </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
-          <p className="text-sm text-gray-600 dark:text-gray-400">{t('metric.profitChange', language)} ({selectedPeriod})</p>
-          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-2">
-            {groupedData.length}
-          </p>
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
+            <Layers className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 dark:text-gray-400">
+              {isRtl ? 'تعداد بازه‌های ثبت شده' : 'Logged Periods'}
+            </p>
+            <p className="text-base font-bold text-slate-900 dark:text-gray-100 tabular-nums mt-0.5">
+              {groupedData.length}
+            </p>
+          </div>
         </div>
       </div>
     </div>
