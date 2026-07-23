@@ -27,7 +27,7 @@ export default function MetricCard({
         <span className="text-sm text-gray-400">{title}</span>
         {icon && <span className="text-gray-500">{icon}</span>}
       </div>
-      <span className={`text-2xl font-semibold tabular-nums ${toneClasses[tone]}`}>
+      <span className={`text-xl sm:text-2xl font-semibold tabular-nums break-words ${toneClasses[tone]}`}>
         {value}
       </span>
       {subtitle && <span className="text-xs text-gray-500">{subtitle}</span>}

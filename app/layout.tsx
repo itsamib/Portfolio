@@ -18,7 +18,7 @@ export default function RootLayout({
       <body className="bg-gray-950 text-gray-100 min-h-screen">
         <DataProvider>
           <Sidebar />
-          <main className="ml-60 min-h-screen p-8">
+          <main className="md:ml-60 min-h-screen p-4 pt-16 sm:p-6 sm:pt-16 md:p-8">
             <div className="max-w-6xl mx-auto">{children}</div>
           </main>
         </DataProvider>
