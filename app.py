@@ -1,9 +1,10 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from io import StringIO
+
+from src.data_loader import load_data, validate_columns
+from src.calculations import compute_metrics
 
 # ------------------------------
 # Page configuration
@@ -13,84 +14,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-# ------------------------------
-# Helper: load and validate data
-# ------------------------------
-@st.cache_data
-def load_data(uploaded_file):
-    """Read CSV or Excel file and return a DataFrame."""
-    if uploaded_file is None:
-        return None
-    filename = uploaded_file.name.lower()
-    try:
-        if filename.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        elif filename.endswith((".xls", ".xlsx")):
-            df = pd.read_excel(uploaded_file)
-        else:
-            st.error("Unsupported file format. Please upload a CSV or Excel file.")
-            return None
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
-        return None
-    return df
-
-def validate_columns(df):
-    """Check that required columns exist."""
-    required = {"Date", "Account_ID", "Portfolio_Value", "Cash_Balance", "Net_Cash_Flow"}
-    missing = required - set(df.columns)
-    if missing:
-        st.error(f"Missing columns: {missing}")
-        return False
-    return True
-
-# ------------------------------
-# Core calculation engine
-# ------------------------------
-def compute_metrics(df):
-    """
-    Compute Total_Equity, Daily_Profit, Cumulative_Profit, and ROI.
-    Returns the enriched DataFrame and a summary per account.
-    """
-    # Ensure date is datetime
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    if df["Date"].isna().any():
-        st.warning("Some dates could not be parsed and will be dropped.")
-        df = df.dropna(subset=["Date"])
-
-    # Sort by account and date
-    df = df.sort_values(["Account_ID", "Date"]).reset_index(drop=True)
-
-    # Total Equity
-    df["Total_Equity"] = df["Portfolio_Value"] + df["Cash_Balance"]
-
-    # Daily Profit (using yesterday's equity and today's net cash flow)
-    # For each account, compute previous day's Total_Equity
-    df["Prev_Equity"] = df.groupby("Account_ID")["Total_Equity"].shift(1)
-    df["Daily_Profit"] = (df["Total_Equity"] - df["Prev_Equity"]) - df["Net_Cash_Flow"]
-    # First day of each account will have NaN; fill with 0 (no profit from prior)
-    df["Daily_Profit"] = df["Daily_Profit"].fillna(0)
-
-    # Cumulative profit per account
-    df["Cumulative_Profit"] = df.groupby("Account_ID")["Daily_Profit"].cumsum()
-
-    # Total net cash flow per account (sum of all net cash flows)
-    net_cash_flows = df.groupby("Account_ID")["Net_Cash_Flow"].sum().reset_index()
-    net_cash_flows.columns = ["Account_ID", "Total_Net_Cash_Flow"]
-
-    # Merge to get per‑account ROI
-    df = df.merge(net_cash_flows, on="Account_ID", how="left")
-
-    # Latest cumulative profit for each account (for summary)
-    latest_idx = df.groupby("Account_ID")["Date"].idxmax()
-    latest_df = df.loc[latest_idx, ["Account_ID", "Cumulative_Profit", "Total_Net_Cash_Flow"]].copy()
-    latest_df["ROI"] = latest_df.apply(
-        lambda row: row["Cumulative_Profit"] / row["Total_Net_Cash_Flow"]
-        if row["Total_Net_Cash_Flow"] != 0 else None,
-        axis=1,
-    )
-    return df, latest_df
 
 # ------------------------------
 # Main Streamlit app
