@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "api/index.py": {
+      "runtime": "python3.9"
+    }
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": "frontend/.next",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "$NEXT_PUBLIC_API_URL"
+  }
+}

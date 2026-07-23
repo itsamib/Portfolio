@@ -1,34 +1,20 @@
-# Python cache
+node_modules/
+.next/
+dist/
+build/
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# Virtual environments
+*.pyc
+*.pyo
+*.egg-info/
 venv/
 env/
-ENV/
-.venv
-
-# Streamlit specific
-.streamlit/secrets.toml
-.streamlit/
-
-# IDE
-.vscode/
-.idea/
+.env
+.env.local
+.env.*.local
+.DS_Store
 *.swp
 *.swo
 *~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
+.vscode/
+.idea/
+data.json
