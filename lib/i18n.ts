@@ -380,7 +380,7 @@ export function formatCurrency(
   }
 
   if (unit === 'rial') {
-    const rialVal = absVal * 10;
+    const rialVal = absVal;
     if (lang === 'fa') {
       const formatted = rialVal.toLocaleString('fa-IR', { maximumFractionDigits: 0 });
       return isNeg ? `-${formatted} ریال` : `${formatted} ریال`;

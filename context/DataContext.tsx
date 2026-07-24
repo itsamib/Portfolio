@@ -43,10 +43,13 @@ interface DataContextValue {
   backupHistory: BackupSnapshot[];
   setCurrencyUnit: (unit: CurrencyUnit) => void;
   addAccount: (name: string) => void;
+  editAccount: (id: string, name: string) => void;
   deleteAccount: (id: string) => void;
   addRecord: (record: Omit<PortfolioRecord, "id">) => void;
+  editRecord: (id: string, record: Partial<Omit<PortfolioRecord, "id">>) => void;
   deleteRecord: (id: string) => void;
   addCashInterest: (item: Omit<CashInterestItem, "id" | "created_at">) => void;
+  editCashInterest: (id: string, item: Partial<Omit<CashInterestItem, "id" | "created_at">>) => void;
   deleteCashInterest: (id: string) => void;
   settleCashInterest: (id: string, depositToPortfolio: boolean) => void;
   exportBackupData: () => { blob: Blob; filename: string };
@@ -150,6 +153,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setAccounts((prev) => [...prev, account]);
   }
 
+  function editAccount(id: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setAccounts((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, name: trimmed } : a))
+    );
+    setCashInterests((prev) =>
+      prev.map((i) => (i.account_id === id ? { ...i, title: trimmed } : i))
+    );
+  }
+
   function deleteAccount(id: string) {
     setAccounts((prev) => prev.filter((a) => a.id !== id));
     setRecords((prev) => prev.filter((r) => r.account_id !== id));
@@ -159,6 +173,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   function addRecord(record: Omit<PortfolioRecord, "id">) {
     const newRecord: PortfolioRecord = { id: uuidv4(), ...record };
     setRecords((prev) => [...prev, newRecord]);
+  }
+
+  function editRecord(id: string, updatedRecord: Partial<Omit<PortfolioRecord, "id">>) {
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...updatedRecord } : r))
+    );
   }
 
   function deleteRecord(id: string) {
@@ -173,6 +193,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       is_settled: false,
     };
     setCashInterests((prev) => [...prev, newItem]);
+  }
+
+  function editCashInterest(
+    id: string,
+    updatedItem: Partial<Omit<CashInterestItem, "id" | "created_at">>
+  ) {
+    setCashInterests((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, ...updatedItem } : i))
+    );
   }
 
   function deleteCashInterest(id: string) {
@@ -330,10 +359,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         backupHistory,
         setCurrencyUnit,
         addAccount,
+        editAccount,
         deleteAccount,
         addRecord,
+        editRecord,
         deleteRecord,
         addCashInterest,
+        editCashInterest,
         deleteCashInterest,
         settleCashInterest,
         exportBackupData,

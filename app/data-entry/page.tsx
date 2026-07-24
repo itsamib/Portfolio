@@ -1,11 +1,14 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { Wallet, Plus, Layers, Filter } from "lucide-react";
 import { useData } from "@/context/DataContext";
 import { useLanguage } from "@/context/LanguageContext";
 import DataTable, { DataTableColumn } from "@/components/DataTable";
 import BackButton from "@/components/BackButton";
 import CashInterestManager from "@/components/CashInterestManager";
+import FormattedNumberInput from "@/components/FormattedNumberInput";
+import CashFlowInput from "@/components/CashFlowInput";
 import { PortfolioRecord } from "@/lib/types";
 import { t, formatCurrency } from "@/lib/i18n";
 import { toPersianDate, formatPersianDate, jalaliToIso } from "@/lib/persianDate";
@@ -15,9 +18,10 @@ function todayIso() {
 }
 
 export default function DataEntryPage() {
-  const { accounts, records, addRecord, deleteRecord, currencyUnit } = useData();
+  const { accounts, records, addRecord, editRecord, deleteRecord, currencyUnit } = useData();
   const { language } = useLanguage();
 
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [date, setDate] = useState(todayIso());
   const [jalaliDateInput, setJalaliDateInput] = useState(toPersianDate(todayIso()));
   const [accountId, setAccountId] = useState("");
@@ -33,6 +37,8 @@ export default function DataEntryPage() {
     [accounts]
   );
 
+  const [selectedAccountFilter, setSelectedAccountFilter] = useState<string>("all");
+
   const sortedRecords = useMemo(
     () =>
       [...records].sort(
@@ -40,6 +46,20 @@ export default function DataEntryPage() {
       ),
     [records]
   );
+
+  const recordsByAccount = useMemo(() => {
+    const map: Record<string, PortfolioRecord[]> = {};
+    for (const acc of accounts) {
+      map[acc.id] = [];
+    }
+    for (const r of sortedRecords) {
+      if (!map[r.account_id]) {
+        map[r.account_id] = [];
+      }
+      map[r.account_id].push(r);
+    }
+    return map;
+  }, [accounts, sortedRecords]);
 
   const persianDateDisplay = useMemo(() => {
     if (!date) return "";
@@ -68,6 +88,18 @@ export default function DataEntryPage() {
     setPortfolioValue("");
     setCashBalance("");
     setNetCashFlow("0");
+    setEditingRecordId(null);
+  }
+
+  function handleStartEdit(r: PortfolioRecord) {
+    setEditingRecordId(r.id);
+    setDate(r.date);
+    setJalaliDateInput(toPersianDate(r.date));
+    setAccountId(r.account_id);
+    setPortfolioValue(String(r.portfolio_value));
+    setCashBalance(String(r.cash_balance));
+    setNetCashFlow(String(r.net_cash_flow));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function handleSubmit(e: FormEvent) {
@@ -87,15 +119,65 @@ export default function DataEntryPage() {
       return;
     }
 
-    addRecord({
-      date,
-      account_id: accountId,
-      portfolio_value: pv,
-      cash_balance: cb,
-      net_cash_flow: ncf,
-    });
+    if (editingRecordId) {
+      editRecord(editingRecordId, {
+        date,
+        account_id: accountId,
+        portfolio_value: pv,
+        cash_balance: cb,
+        net_cash_flow: ncf,
+      });
+    } else {
+      addRecord({
+        date,
+        account_id: accountId,
+        portfolio_value: pv,
+        cash_balance: cb,
+        net_cash_flow: ncf,
+      });
+    }
     resetForm();
   }
+
+  // Account-specific columns (omits account column since card is already account-specific)
+  const accountColumns: DataTableColumn<PortfolioRecord>[] = [
+    {
+      key: "jalaliDate",
+      header: t("table.jalaliDate", language),
+      render: (r) => (
+        <span className="font-medium text-indigo-600 dark:text-indigo-300">
+          {toPersianDate(r.date)}
+        </span>
+      ),
+    },
+    {
+      key: "date",
+      header: t("table.date", language),
+      render: (r) => <span className="text-slate-500 dark:text-gray-400">{r.date}</span>,
+    },
+    {
+      key: "portfolio_value",
+      header: t("table.portfolioValue", language),
+      align: "right",
+      render: (r) => formatCurrency(r.portfolio_value, language, currencyUnit),
+    },
+    {
+      key: "cash_balance",
+      header: t("table.cashBalance", language),
+      align: "right",
+      render: (r) => formatCurrency(r.cash_balance, language, currencyUnit),
+    },
+    {
+      key: "net_cash_flow",
+      header: t("table.netCashFlow", language),
+      align: "right",
+      render: (r) => (
+        <span className={r.net_cash_flow < 0 ? "text-rose-600 dark:text-rose-400 font-medium" : ""}>
+          {formatCurrency(r.net_cash_flow, language, currencyUnit)}
+        </span>
+      ),
+    },
+  ];
 
   const columns: DataTableColumn<PortfolioRecord>[] = [
     {
@@ -217,59 +299,52 @@ export default function DataEntryPage() {
               </div>
 
               {/* Portfolio Value */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-gray-400">
-                  {t("dataEntry.portfolioValue", language)}
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={portfolioValue}
-                  onChange={(e) => setPortfolioValue(e.target.value)}
-                  className="glass-input"
-                  placeholder="0"
-                  required
-                />
-              </div>
+              <FormattedNumberInput
+                label={t("dataEntry.portfolioValue", language)}
+                value={portfolioValue}
+                onChange={setPortfolioValue}
+                placeholder="0"
+                required
+              />
 
               {/* Cash Balance */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-gray-400">
-                  {t("dataEntry.cashBalance", language)}
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={cashBalance}
-                  onChange={(e) => setCashBalance(e.target.value)}
-                  className="glass-input"
-                  placeholder="0"
-                  required
-                />
-              </div>
+              <FormattedNumberInput
+                label={t("dataEntry.cashBalance", language)}
+                value={cashBalance}
+                onChange={setCashBalance}
+                placeholder="0"
+                required
+              />
 
-              {/* Net Cash Flow */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-gray-400">
-                  {t("dataEntry.netCashFlow", language)}
-                </label>
-                <input
-                  type="number"
-                  step="any"
+              {/* Net Cash Flow (Deposit / Withdrawal selector) */}
+              <div className="col-span-1 md:col-span-2">
+                <CashFlowInput
+                  label={t("dataEntry.netCashFlow", language)}
                   value={netCashFlow}
-                  onChange={(e) => setNetCashFlow(e.target.value)}
-                  className="glass-input"
-                  placeholder="0"
+                  onChange={setNetCashFlow}
                 />
               </div>
             </div>
 
             {formError && <p className="text-sm text-rose-600 dark:text-rose-400">{formError}</p>}
 
-            <div>
+            <div className="flex items-center gap-2">
               <button type="submit" className="glass-button">
-                {t("dataEntry.addRecord", language)}
+                {editingRecordId
+                  ? isRtl
+                    ? "ویرایش و بروزرسانی رکورد"
+                    : "Update Record"
+                  : t("dataEntry.addRecord", language)}
               </button>
+              {editingRecordId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-2 text-sm rounded-xl font-medium border border-slate-300 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                >
+                  {isRtl ? "لغو ویرایش" : "Cancel"}
+                </button>
+              )}
             </div>
           </>
         )}
@@ -278,14 +353,142 @@ export default function DataEntryPage() {
       {/* Cash Interest & Maturity Management Section */}
       <CashInterestManager />
 
-      {/* Data Records Table */}
-      <DataTable
-        columns={columns}
-        rows={sortedRecords}
-        getRowId={(r) => r.id}
-        onDelete={(r) => deleteRecord(r.id)}
-        emptyMessage={t("table.noRecords", language)}
-      />
+      {/* Account Data Cards Section */}
+      <div className="flex flex-col gap-4 mt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              {isRtl ? "اطلاعات ثبت شده به تفکیک حساب" : "Records by Account"}
+            </h2>
+          </div>
+
+          {/* Account Filter Pills */}
+          {accounts.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full no-scrollbar">
+              <button
+                onClick={() => setSelectedAccountFilter("all")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all whitespace-nowrap flex items-center gap-1 ${
+                  selectedAccountFilter === "all"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                    : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-white/10"
+                }`}
+              >
+                <Filter className="w-3.5 h-3.5" />
+                <span>{isRtl ? "همه حساب‌ها" : "All Accounts"}</span>
+                <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-white/20">
+                  {records.length}
+                </span>
+              </button>
+
+              {accounts.map((acc) => {
+                const count = (recordsByAccount[acc.id] || []).length;
+                const isSelected = selectedAccountFilter === acc.id;
+                return (
+                  <button
+                    key={acc.id}
+                    onClick={() => setSelectedAccountFilter(acc.id)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                      isSelected
+                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                        : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-white/10"
+                    }`}
+                  >
+                    <span>{acc.name}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                        isSelected ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-white/10"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Display Accounts Cards */}
+        {accounts.length === 0 ? (
+          <div className="glass-card p-8 text-center text-sm text-slate-500 dark:text-gray-400">
+            {t("table.noRecords", language)}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {accounts
+              .filter((acc) => selectedAccountFilter === "all" || selectedAccountFilter === acc.id)
+              .map((acc) => {
+                const accRecords = recordsByAccount[acc.id] || [];
+                const latestRecord = accRecords[0];
+
+                return (
+                  <div key={acc.id} className="glass-card p-5 flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 dark:border-white/10 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 font-bold">
+                          <Wallet className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>{acc.name}</span>
+                            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300 font-medium">
+                              {accRecords.length} {isRtl ? "رکورد ثبت شده" : "records"}
+                            </span>
+                          </h3>
+                          {latestRecord && (
+                            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                              {isRtl ? "آخرین بروزرسانی: " : "Latest: "}
+                              <span className="font-semibold text-indigo-600 dark:text-indigo-300">
+                                {toPersianDate(latestRecord.date)}
+                              </span>{" "}
+                              ({formatCurrency(latestRecord.portfolio_value + latestRecord.cash_balance, language, currencyUnit)})
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setAccountId(acc.id);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5 self-start sm:self-auto"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>{isRtl ? "ثبت رکورد جدید برای این حساب" : "Add Record for Account"}</span>
+                      </button>
+                    </div>
+
+                    {accRecords.length > 0 ? (
+                      <DataTable
+                        columns={accountColumns}
+                        rows={accRecords}
+                        getRowId={(r) => r.id}
+                        onEdit={(r) => handleStartEdit(r)}
+                        onDelete={(r) => deleteRecord(r.id)}
+                        emptyMessage={t("table.noRecords", language)}
+                      />
+                    ) : (
+                      <div className="p-6 text-center text-xs text-slate-500 dark:text-gray-400 bg-slate-50/50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200/80 dark:border-white/10 flex flex-col items-center gap-2">
+                        <span>{isRtl ? "هنوز رکوردی برای این حساب ثبت نشده است." : "No records entered for this account yet."}</span>
+                        <button
+                          onClick={() => {
+                            setAccountId(acc.id);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          className="text-xs text-indigo-600 dark:text-indigo-400 underline font-medium"
+                        >
+                          {isRtl ? "افزودن اولین رکورد" : "Add First Record"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

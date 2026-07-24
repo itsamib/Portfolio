@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Edit2 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
 export interface DataTableColumn<T> {
@@ -15,6 +15,7 @@ interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   rows: T[];
   getRowId: (row: T) => string;
+  onEdit?: (row: T) => void;
   onDelete?: (row: T) => void;
   emptyMessage?: string;
 }
@@ -23,6 +24,7 @@ export default function DataTable<T>({
   columns,
   rows,
   getRowId,
+  onEdit,
   onDelete,
   emptyMessage = "No records yet.",
 }: DataTableProps<T>) {
@@ -60,7 +62,7 @@ export default function DataTable<T>({
                 </th>
               );
             })}
-            {onDelete && <th className="px-4 py-3.5 w-10" />}
+            {(onEdit || onDelete) && <th className="px-4 py-3.5 w-20 text-center">عملیات</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-slate-800 dark:text-gray-200">
@@ -87,15 +89,30 @@ export default function DataTable<T>({
                   </td>
                 );
               })}
-              {onDelete && (
-                <td className="px-4 py-3.5 text-center">
-                  <button
-                    onClick={() => onDelete(row)}
-                    aria-label="Delete row"
-                    className="text-slate-400 hover:text-rose-600 dark:text-gray-500 dark:hover:text-rose-400 transition-colors p-1"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+              {(onEdit || onDelete) && (
+                <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                  <div className="flex items-center justify-center gap-1">
+                    {onEdit && (
+                      <button
+                        onClick={() => onEdit(row)}
+                        aria-label="Edit row"
+                        title="ویرایش"
+                        className="text-slate-400 hover:text-indigo-600 dark:text-gray-500 dark:hover:text-indigo-400 transition-colors p-1"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={() => onDelete(row)}
+                        aria-label="Delete row"
+                        title="حذف"
+                        className="text-slate-400 hover:text-rose-600 dark:text-gray-500 dark:hover:text-rose-400 transition-colors p-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </td>
               )}
             </tr>
